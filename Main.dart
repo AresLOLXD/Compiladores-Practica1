@@ -21,17 +21,21 @@ main() async {
     var cadena = stdin.readLineSync(); //Se recibe la cadena
     adc.comprobarCadena(cadena ??
         ""); //Se manda a llamar la funcion de comprobarCadena sabiendo que la cadena puede ser null, por eso el ?? ""
-    for (var error in adc.errores) {
-      //En caso de algun error se imprime antes que los caminos
-      stdout.writeln(error);
-    }
+
     if (adc.caminos.length == 0) {
       //Si no hay caminos, significa que no llego a un estado de aceptacion
       stdout.writeln("La cadena no es aceptada por el automata");
     } else {
-      for (var camino in adc.caminos) {
+      for (var i = 0; i < adc.caminos.length; i++) {
+        var camino = adc.caminos[i];
+        var errores = adc.errores[i];
         //Se imprimen los caminos en el formato n=>m=>...=>k
-        stdout.writeln("Se encontro el siguiente camino: ${camino.join("=>")}");
+        stdout.writeln(
+            "Se encontro el siguiente camino: ${"q" + camino.join("=>q")}");
+        for (var error in errores) {
+          stdout.writeln(error);
+        }
+        stdout.writeln("\n");
       }
     }
   } else {

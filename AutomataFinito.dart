@@ -118,6 +118,14 @@ class AutomataFinito {
           (_funcionDeTransicion[estado])?[caracter] = [-1];
         }
       }
+      if (!_funcionDeTransicion.containsKey(estado)) {
+        //Si no existen transiciones para el estado, se crea su espacio para transiciones
+        _funcionDeTransicion[estado] = new LinkedHashMap<String, List<int>>();
+      }
+      if (!((_funcionDeTransicion[estado])?.containsKey("") ?? true)) {
+        //Si no existe transicion del estado con el caracter se manda automaticamente al estado "muerto"
+        (_funcionDeTransicion[estado])?[""] = [-1];
+      }
     }
   }
 
@@ -136,9 +144,11 @@ class AutomataFinito {
     _funcionDeTransicion.forEach((estado, transicion) {
       transicion.forEach((caracter, estados) {
         for (var estadoF in estados) {
-          output += "$estado,"
-              "$caracter,"
-              "$estadoF\n";
+          if (caracter != "" || estadoF != -1) {
+            output += "$estado,"
+                "${caracter == "" ? "e" : caracter},"
+                "$estadoF\n";
+          }
         }
       });
     });

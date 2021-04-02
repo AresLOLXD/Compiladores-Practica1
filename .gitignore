@@ -1,3 +1,8 @@
 *.txt
 !AF.txt
 *.png
+*.docx
+*.pdf
+*.tmp
+/Imagenes
+*.zip

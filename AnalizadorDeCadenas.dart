@@ -5,15 +5,19 @@ import 'AutomataFinito.dart'; //Importamos el archivo del Automata Finito
 
 class AnalizadorDeCadenas {
   AutomataFinito _af = AutomataFinito.empty(); //Iniciamos el automata vacio
-  List<List<int>> _caminos =
-      []; //En esta lista almacenaremos los caminos que encuentre el analizador
-  List<String> _errores =
+  List _caminosDeAceptacion =
+      []; //En esta lista almacenaremos los caminos que encuentre el analizador y que lleven a un estado de aceptacion
+  List<int> _camino =
+      []; //En esta lista se almacenan los estados por el cual la busqueda esta pasando
+  List<List<String>> _errores =
+      []; //En esta lista almacenaremos los errores de los caminos de aceptacion, por el momento solo indica si un caracter no pertenece al alfabeto
+  List<String> _error =
       []; //En esta lista almacenaremos los errores que se encuentren durante el proceso, por el momento solo indica si un caracter no pertenece al alfabeto
 
   String _cadena = ""; //La cadena que se analizara
 
   //Getters del camino y los errores, de igual manera no se necesitan los setters
-  get caminos => _caminos;
+  get caminos => _caminosDeAceptacion;
   get errores => _errores;
   /**
    * La funcion iniciarAutomataFinito es una funcion asincrona, se debe hacer esto
@@ -26,9 +30,11 @@ class AnalizadorDeCadenas {
       /**
        * Inicio los valores las variables (Aunque ya se inician solas)
        */
-      this._caminos = [];
+      this._caminosDeAceptacion = [];
       this._cadena = "";
+      this._camino = [];
       this._errores = [];
+      this._error = [];
 
       File archivo =
           new File("AF.txt"); //Creo una variable para trabajar con el archivo
@@ -78,12 +84,22 @@ class AnalizadorDeCadenas {
           //Si no existe el estado en la funcion creo su espacio
           funcionDeTransicion[estadoI] = new LinkedHashMap();
         }
-        if (!((funcionDeTransicion[estadoI])?.containsKey(caracter) ?? true)) {
-          (funcionDeTransicion[estadoI])?[caracter] =
-              []; //Si no existe el caracter en la funcion creo su espacio
+        if (caracter.toLowerCase() != "e") {
+          if (!((funcionDeTransicion[estadoI])?.containsKey(caracter) ??
+              true)) {
+            (funcionDeTransicion[estadoI])?[caracter] =
+                []; //Si no existe el caracter en la funcion creo su espacio
+          }
+          (funcionDeTransicion[estadoI])?[caracter]?.add(
+              estadoF); //Agrego el estado destino a la lista del estado del caracter
+        } else {
+          if (!((funcionDeTransicion[estadoI])?.containsKey("") ?? true)) {
+            (funcionDeTransicion[estadoI])?[""] =
+                []; //Si no existe la cadena vacia en la funcion creo su espacio
+          }
+          (funcionDeTransicion[estadoI])?[""]?.add(
+              estadoF); //Agrego el estado destino a la lista del estado del caracter
         }
-        (funcionDeTransicion[estadoI])?[caracter]?.add(
-            estadoF); //Agrego el estado destino a la lista del estado del caracter
       }
       this._af = new AutomataFinito(alfabeto, estados, estadosFinales,
           estadoInicial, funcionDeTransicion); //Mando a llamar a su constructor
@@ -105,10 +121,11 @@ class AnalizadorDeCadenas {
    * reinicia todos los valores en caso de que se vuelva a llamar con una cadena diferente
    */
   comprobarCadena(String cadena) {
-    this._caminos = [];
-    this._errores = [];
+    this._caminosDeAceptacion = [];
+    this._camino = [];
+    this._error = [];
     this._cadena = cadena;
-    _buscaCaminoRecursivo(0, _af.estadoInicial, []);
+    _buscaCaminoRecursivo(0, _af.estadoInicial);
   }
 
   /**
@@ -117,15 +134,30 @@ class AnalizadorDeCadenas {
    * 
    * Esta es una funcion recursiva y al mandar los estados todo el tiempo, puede que consuma mucha memoria o tarde mucho tiempo
    */
-  _buscaCaminoRecursivo(int indice, int estado, List<int> estados) {
+  _buscaCaminoRecursivo(int indice, int estado) {
     if (indice == _cadena.length) {
       //Si llegamos al final de la cadena debemos revisar que el estado al que llegamos sea de aceptacion
       if (_af.estadosFinales.contains(estado)) {
-        var nuevosEstados = List.of(
-            estados); //Creo una copia por el hecho de que esto funciona con referencia
-        nuevosEstados
-            .add(estado); //Agrego el estado a la nueva lista de estados
-        _caminos.add(nuevosEstados); //Y se agrega a los caminos encontrados
+        var caminoFinal = List.of(
+            _camino); //Creo una copia por el hecho de que esto funciona con referencia
+        var erroresFinal = List.of(
+            _error); //Creo una copia por el hecho de que esto funciona con referencia
+        caminoFinal.add(estado); //Agrego el estado a la nueva lista de estados
+        _caminosDeAceptacion
+            .add(caminoFinal); //Y se agrega a los caminos encontrados
+        _errores.add(
+            erroresFinal); //Y se agrega a los errores encontrados del camino
+      }
+      var nuevosEstadosTrans = _af.obtenerTransicion(
+          estado, ""); //Revisamos si tiene caminos con la cadena vacia
+      if (nuevosEstadosTrans != null) {
+        _camino.add(estado); //Agregamos el estado actual para que se registre
+        for (var nuevoEstado in nuevosEstadosTrans) {
+          //E iteramos sobre los estados destinos que nos devolvio la funcion de transicion
+          _buscaCaminoRecursivo(
+              indice + 1, nuevoEstado); //Y regresamos a la busqueda recursiva
+        }
+        _camino.removeLast();
       }
     } else {
       var nuevosEstadosTrans = _af.obtenerTransicion(
@@ -136,21 +168,29 @@ class AnalizadorDeCadenas {
         //En caso de que el resultado sea null, quiere decir que el caracter no existe en el alfabeto, se hace una nota del error y se sigue procesando saltandose ese caracter
         var error = "El caracter ${_cadena[indice]} en"
             " el indice ${indice + 1} no pertenece al alfabeto";
-        if (!_errores.contains(
-            error)) //Esta verificacion es porque puede que los errores durante la busqueda se repitan
-          _errores.add(error);
-        _buscaCaminoRecursivo(indice + 1, estado,
-            estados); //Procedemos con la busqueda como si este caracter nunca hubiera existido
+        _error.add(error);
+        _buscaCaminoRecursivo(indice + 1,
+            estado); //Procedemos con la busqueda como si este caracter nunca hubiera existido
+        _error.removeLast();
       } else {
-        var nuevosEstados =
-            List.of(estados); //Copiamos por el hecho de que es una referencia
-        nuevosEstados
-            .add(estado); //Agregamos el estado actual para que se registre
+        _camino.add(estado); //Agregamos el estado actual para que se registre
         for (var nuevoEstado in nuevosEstadosTrans) {
           //E iteramos sobre los estados destinos que nos devolvio la funcion de transicion
-          _buscaCaminoRecursivo(indice + 1, nuevoEstado,
-              nuevosEstados); //Y regresamos a la busqueda recursiva
+          _buscaCaminoRecursivo(
+              indice + 1, nuevoEstado); //Y regresamos a la busqueda recursiva
         }
+        _camino.removeLast();
+      }
+      nuevosEstadosTrans = _af.obtenerTransicion(
+          estado, ""); //Revisamos si tiene caminos con la cadena vacia
+      if (nuevosEstadosTrans != null) {
+        _camino.add(estado); //Agregamos el estado actual para que se registre
+        for (var nuevoEstado in nuevosEstadosTrans) {
+          //E iteramos sobre los estados destinos que nos devolvio la funcion de transicion
+          _buscaCaminoRecursivo(
+              indice + 1, nuevoEstado); //Y regresamos a la busqueda recursiva
+        }
+        _camino.removeLast();
       }
     }
   }
